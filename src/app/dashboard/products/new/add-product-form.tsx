@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
 
-function FormFields({ error }: { error: string | undefined }) {
+function FormFields({
+  error,
+  message,
+}: {
+  error: string | undefined;
+  message: string | undefined;
+}) {
   const { pending } = useFormStatus();
 
   return (
@@ -30,6 +36,11 @@ function FormFields({ error }: { error: string | undefined }) {
       {error && (
         <p className="text-sm text-red-600" role="alert">
           {error}
+        </p>
+      )}
+      {message && (
+        <p className="text-sm text-amber-600" role="status">
+          {message}
         </p>
       )}
       <div className="flex gap-3">
@@ -66,7 +77,10 @@ export function AddProductForm() {
 
   return (
     <form action={formAction} className="space-y-4">
-      <FormFields error={state && !state.success ? state.error : undefined} />
+      <FormFields
+        error={state && !state.success ? state.error : undefined}
+        message={state?.success ? state.message : undefined}
+      />
     </form>
   );
 }

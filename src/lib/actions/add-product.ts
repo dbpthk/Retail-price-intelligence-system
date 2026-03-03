@@ -2,7 +2,8 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { products } from "@/lib/db/schema";
+import { priceHistory, products } from "@/lib/db/schema";
+import { fetchPrice, PriceFetcherError } from "@/lib/services";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -10,6 +11,8 @@ import { randomUUID } from "crypto";
 
 const PLACEHOLDER_PRICE = "—";
 const PLACEHOLDER_TITLE = "Product";
+const DEFAULT_PRICE_SELECTOR =
+  ".price, .product-price, [data-price], #price, span[class*='price']";
 
 function isValidUrl(input: string): boolean {
   try {
@@ -30,7 +33,7 @@ function normalizeUrl(input: string): string {
 }
 
 export type AddProductResult =
-  | { success: true }
+  | { success: true; message?: string }
   | { success: false; error: string };
 
 export async function addProduct(
@@ -76,18 +79,56 @@ export async function addProduct(
     };
   }
 
+  const productId = randomUUID();
+  const selector =
+    (formData.get("selector") as string)?.trim() || DEFAULT_PRICE_SELECTOR;
+
+  let price: number | null = null;
+  try {
+    price = await fetchPrice(normalizedUrl, {
+      selector,
+      timeoutMs: 10_000,
+    });
+  } catch (error) {
+    if (error instanceof PriceFetcherError) {
+      // Continue with placeholder - we'll save the product and inform the user
+    }
+    // price stays null, we'll use placeholder
+  }
+
+  const priceStr = price !== null ? String(price) : PLACEHOLDER_PRICE;
+  const now = new Date();
+
   try {
     await db.insert(products).values({
-      id: randomUUID(),
+      id: productId,
       userId: session.user.id,
       title: PLACEHOLDER_TITLE,
       url: normalizedUrl,
-      currentPrice: PLACEHOLDER_PRICE,
+      currentPrice: priceStr,
+      lastCheckedAt: now,
     });
+
+    if (price !== null) {
+      await db.insert(priceHistory).values({
+        id: randomUUID(),
+        productId,
+        price: priceStr,
+        checkedAt: now,
+      });
+    }
   } catch {
     return {
       success: false,
       error: "Failed to add product. Please try again.",
+    };
+  }
+
+  if (price === null) {
+    return {
+      success: true,
+      message:
+        "Product added. Price could not be fetched — it may be updated later.",
     };
   }
 
