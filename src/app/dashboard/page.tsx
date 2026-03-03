@@ -113,6 +113,18 @@ export default async function DashboardPage() {
                   <p className="mb-3 text-2xl font-semibold text-blue-600">
                     {product.currentPrice}
                   </p>
+                  {(product.targetPrice || product.notifyBelow != null) && (
+                    <p className="mb-2 text-xs text-gray-500">
+                      {[
+                        product.targetPrice &&
+                          `Notify below ${product.targetPrice}`,
+                        product.notifyBelow != null &&
+                          `Notify on ${product.notifyBelow}%+ drop`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Link
                       href={`/dashboard/products/${product.id}`}

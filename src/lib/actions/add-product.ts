@@ -83,6 +83,24 @@ export async function addProduct(
   const selector =
     (formData.get("selector") as string)?.trim() || DEFAULT_PRICE_SELECTOR;
 
+  const targetPriceInput = (formData.get("targetPrice") as string)?.trim();
+  let targetPrice: string | null = null;
+  if (targetPriceInput) {
+    const num = parseFloat(targetPriceInput.replace(/,/g, ""));
+    if (!Number.isNaN(num) && num > 0) {
+      targetPrice = String(num);
+    }
+  }
+
+  const notifyBelowInput = (formData.get("notifyBelow") as string)?.trim();
+  let notifyBelow: number | null = null;
+  if (notifyBelowInput) {
+    const num = parseFloat(notifyBelowInput.replace(/,/g, ""));
+    if (!Number.isNaN(num) && num > 0 && num <= 100) {
+      notifyBelow = num;
+    }
+  }
+
   let price: number | null = null;
   try {
     price = await fetchPrice(normalizedUrl, {
@@ -106,6 +124,8 @@ export async function addProduct(
       title: PLACEHOLDER_TITLE,
       url: normalizedUrl,
       currentPrice: priceStr,
+      targetPrice,
+      notifyBelow,
       lastCheckedAt: now,
     });
 

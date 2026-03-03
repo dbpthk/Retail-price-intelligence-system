@@ -97,40 +97,53 @@ async function handleCheckPrices(
             checkedAt: now,
           });
 
-          await db.insert(notifications).values({
-            id: randomUUID(),
-            productId: product.id,
-            oldPrice: oldPriceStr,
-            newPrice: newPriceStr,
-            sentAt: now,
-          });
+          const targetPriceNum = parsePrice(product.targetPrice ?? "");
+          const belowTarget =
+            targetPriceNum !== null && newPrice < targetPriceNum;
+          const notifyBelowPct = product.notifyBelow ?? null;
+          const meetsPercentThreshold =
+            notifyBelowPct !== null && percentDrop >= notifyBelowPct;
+          const shouldNotify = belowTarget || meetsPercentThreshold;
 
-          const [owner] = await db
-            .select({ email: user.email })
-            .from(user)
-            .where(eq(user.id, product.userId))
-            .limit(1);
-
-          if (owner?.email) {
-            const emailResult = await sendPriceDropEmail({
-              to: owner.email,
-              productTitle: product.title,
+          if (shouldNotify) {
+            await db.insert(notifications).values({
+              id: randomUUID(),
+              productId: product.id,
               oldPrice: oldPriceStr,
               newPrice: newPriceStr,
-              percentDrop,
-              productUrl: product.url,
+              sentAt: now,
             });
 
-            if (emailResult.success) {
-              notified++;
-              log(`Email sent: ${product.id}`, { to: owner.email });
-            } else {
-              log(`Email failed: ${product.id}`, {
-                error: emailResult.error,
+            const [owner] = await db
+              .select({ email: user.email })
+              .from(user)
+              .where(eq(user.id, product.userId))
+              .limit(1);
+
+            if (owner?.email) {
+              const emailResult = await sendPriceDropEmail({
+                to: owner.email,
+                productTitle: product.title,
+                oldPrice: oldPriceStr,
+                newPrice: newPriceStr,
+                percentDrop,
+                productUrl: product.url,
               });
+
+              if (emailResult.success) {
+                notified++;
+                log(`Email sent (below target): ${product.id}`, {
+                  to: owner.email,
+                  target: targetPriceNum,
+                });
+              } else {
+                log(`Email failed: ${product.id}`, {
+                  error: emailResult.error,
+                });
+              }
+            } else {
+              log(`No owner email for product ${product.id}`);
             }
-          } else {
-            log(`No owner email for product ${product.id}`);
           }
 
           updated++;
@@ -138,6 +151,7 @@ async function handleCheckPrices(
             oldPrice: oldPriceStr,
             newPrice: newPriceStr,
             percentDrop: percentDrop.toFixed(1),
+            notified: shouldNotify,
           });
         } else {
           await db
@@ -158,6 +172,47 @@ async function handleCheckPrices(
               .set({ currentPrice: String(newPrice) })
               .where(eq(products.id, product.id));
             updated++;
+
+            const targetPriceNum = parsePrice(product.targetPrice ?? "");
+            const belowTarget =
+              targetPriceNum !== null && newPrice < targetPriceNum;
+            const shouldNotify = belowTarget;
+
+            if (shouldNotify) {
+              await db.insert(notifications).values({
+                id: randomUUID(),
+                productId: product.id,
+                oldPrice: product.currentPrice,
+                newPrice: String(newPrice),
+                sentAt: now,
+              });
+
+              const [owner] = await db
+                .select({ email: user.email })
+                .from(user)
+                .where(eq(user.id, product.userId))
+                .limit(1);
+
+              if (owner?.email) {
+                const emailResult = await sendPriceDropEmail({
+                  to: owner.email,
+                  productTitle: product.title,
+                  oldPrice: product.currentPrice,
+                  newPrice: String(newPrice),
+                  percentDrop: 0,
+                  productUrl: product.url,
+                });
+
+                if (emailResult.success) {
+                  notified++;
+                  log(`Email sent (below target, initial): ${product.id}`, {
+                    to: owner.email,
+                    target: targetPriceNum,
+                  });
+                }
+              }
+            }
+
             log(`Initial price set: ${product.id}`, { newPrice });
           } else {
             log(`Price unchanged or increased: ${product.id}`, {

@@ -15,6 +15,20 @@
       "when": 1772501469251,
       "tag": "0001_add_products_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772503571286,
+      "tag": "0002_add_target_price",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1772503813447,
+      "tag": "0003_chilly_post",
+      "breakpoints": true
     }
   ]
 }

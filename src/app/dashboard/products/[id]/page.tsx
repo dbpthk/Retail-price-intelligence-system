@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { PriceHistoryChart } from "./price-history-chart";
+import { TargetPriceForm } from "./target-price-form";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -77,6 +78,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <p className="mb-4 text-2xl font-semibold text-blue-600">
             {product.currentPrice}
           </p>
+          <div className="mb-4">
+            <TargetPriceForm
+              productId={product.id}
+              currentTargetPrice={product.targetPrice}
+              currentNotifyBelow={product.notifyBelow}
+            />
+          </div>
           <a
             href={product.url}
             target="_blank"

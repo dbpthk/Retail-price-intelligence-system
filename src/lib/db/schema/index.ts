@@ -1,5 +1,11 @@
 import { relations } from "drizzle-orm";
-import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTable,
+  real,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import { user } from "@/lib/schema";
 
 export const products = pgTable(
@@ -12,6 +18,8 @@ export const products = pgTable(
     title: text("title").notNull(),
     url: text("url").notNull(),
     currentPrice: text("current_price").notNull(),
+    targetPrice: text("target_price"),
+    notifyBelow: real("notify_below"),
     lastCheckedAt: timestamp("last_checked_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

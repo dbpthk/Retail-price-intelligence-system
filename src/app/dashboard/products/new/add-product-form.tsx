@@ -33,6 +33,48 @@ function FormFields({
           className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
         />
       </div>
+      <div>
+        <label
+          htmlFor="targetPrice"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Notify when price drops below (optional)
+        </label>
+        <input
+          id="targetPrice"
+          name="targetPrice"
+          type="text"
+          inputMode="decimal"
+          placeholder="e.g. 29.99"
+          disabled={pending}
+          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          You&apos;ll receive an email only when the price falls below this
+          value.
+        </p>
+      </div>
+      <div>
+        <label
+          htmlFor="notifyBelow"
+          className="block text-sm font-medium text-gray-700"
+        >
+          Notify when price drops by % (optional)
+        </label>
+        <input
+          id="notifyBelow"
+          name="notifyBelow"
+          type="text"
+          inputMode="decimal"
+          placeholder="e.g. 20"
+          disabled={pending}
+          className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          You&apos;ll receive an email when the price drops by this percentage
+          or more (e.g. 20 = notify on 20%+ drop).
+        </p>
+      </div>
       {error && (
         <p className="text-sm text-red-600" role="alert">
           {error}
