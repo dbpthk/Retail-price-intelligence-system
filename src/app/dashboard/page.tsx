@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { DeleteProductButton } from "./delete-product-button";
 import { SignOutButton } from "./sign-out-button";
 
 const PLACEHOLDER_PRICE = "—";
@@ -209,10 +210,16 @@ export default async function DashboardPage() {
               return (
                 <article
                   key={product.id}
-                  className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-gray-700 dark:bg-[#111827]"
+                  className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-gray-700 dark:bg-[#111827]"
                 >
+                  <div className="absolute right-3 top-3">
+                    <DeleteProductButton
+                      productId={product.id}
+                      productTitle={product.title}
+                    />
+                  </div>
                   <div className="p-5">
-                    <h3 className="mb-3 line-clamp-2 text-[15px] font-semibold leading-snug text-[#111827] dark:text-[#E5E7EB]">
+                    <h3 className="mb-3 line-clamp-2 pr-8 text-[15px] font-semibold leading-snug text-[#111827] dark:text-[#E5E7EB]">
                       {product.title}
                     </h3>
                     <div className="mb-2 flex items-baseline gap-2">
