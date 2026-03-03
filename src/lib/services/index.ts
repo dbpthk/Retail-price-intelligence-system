@@ -10,3 +10,8 @@ export {
   PriceFetcherError,
   type PriceFetcherConfig,
 } from "./price-fetcher";
+
+export {
+  sendPriceDropEmail,
+  type PriceDropEmailParams,
+} from "./email/price-drop";

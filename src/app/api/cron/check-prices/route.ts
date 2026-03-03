@@ -4,7 +4,12 @@ import {
   priceHistory,
   products,
 } from "@/lib/db/schema";
-import { fetchPrice, PriceFetcherError } from "@/lib/services";
+import { user } from "@/lib/schema";
+import {
+  fetchPrice,
+  PriceFetcherError,
+  sendPriceDropEmail,
+} from "@/lib/services";
 import { eq } from "drizzle-orm";
 import { type NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
@@ -72,10 +77,15 @@ async function handleCheckPrices(
           currentPriceNum !== null && newPrice < currentPriceNum;
 
         if (priceDecreased) {
+          const oldPriceStr = product.currentPrice;
+          const newPriceStr = String(newPrice);
+          const percentDrop =
+            ((currentPriceNum - newPrice) / currentPriceNum) * 100;
+
           await db
             .update(products)
             .set({
-              currentPrice: String(newPrice),
+              currentPrice: newPriceStr,
               lastCheckedAt: now,
             })
             .where(eq(products.id, product.id));
@@ -83,23 +93,51 @@ async function handleCheckPrices(
           await db.insert(priceHistory).values({
             id: randomUUID(),
             productId: product.id,
-            price: String(newPrice),
+            price: newPriceStr,
             checkedAt: now,
           });
 
           await db.insert(notifications).values({
             id: randomUUID(),
             productId: product.id,
-            oldPrice: product.currentPrice,
-            newPrice: String(newPrice),
+            oldPrice: oldPriceStr,
+            newPrice: newPriceStr,
             sentAt: now,
           });
 
+          const [owner] = await db
+            .select({ email: user.email })
+            .from(user)
+            .where(eq(user.id, product.userId))
+            .limit(1);
+
+          if (owner?.email) {
+            const emailResult = await sendPriceDropEmail({
+              to: owner.email,
+              productTitle: product.title,
+              oldPrice: oldPriceStr,
+              newPrice: newPriceStr,
+              percentDrop,
+              productUrl: product.url,
+            });
+
+            if (emailResult.success) {
+              notified++;
+              log(`Email sent: ${product.id}`, { to: owner.email });
+            } else {
+              log(`Email failed: ${product.id}`, {
+                error: emailResult.error,
+              });
+            }
+          } else {
+            log(`No owner email for product ${product.id}`);
+          }
+
           updated++;
-          notified++;
           log(`Price drop: ${product.id}`, {
-            oldPrice: product.currentPrice,
-            newPrice,
+            oldPrice: oldPriceStr,
+            newPrice: newPriceStr,
+            percentDrop: percentDrop.toFixed(1),
           });
         } else {
           await db
