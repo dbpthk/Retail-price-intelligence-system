@@ -1,1 +1,8 @@
 @import "tailwindcss";
+
+/* Use class-based dark mode so manual toggle works (Tailwind v4 defaults to system preference) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}

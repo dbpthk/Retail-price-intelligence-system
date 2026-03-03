@@ -52,7 +52,7 @@ export function TargetPriceForm({
       <div>
         <label
           htmlFor="targetPrice"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-[#111827] dark:text-[#E5E7EB]"
         >
           Notify when price drops below
         </label>
@@ -65,14 +65,14 @@ export function TargetPriceForm({
             onChange={(e) => setTargetValue(e.target.value)}
             placeholder="e.g. 29.99"
             disabled={isPending}
-            className="block w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className="block w-32 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#111827] shadow-sm focus:border-[#1D4ED8] focus:outline-none focus:ring-1 focus:ring-[#1D4ED8] disabled:opacity-50 dark:border-gray-600 dark:bg-[#111827] dark:text-[#E5E7EB]"
           />
         </div>
       </div>
       <div>
         <label
           htmlFor="notifyBelow"
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-medium text-[#111827] dark:text-[#E5E7EB]"
         >
           Notify when price drops by %
         </label>
@@ -85,10 +85,10 @@ export function TargetPriceForm({
             onChange={(e) => setNotifyValue(e.target.value)}
             placeholder="e.g. 20"
             disabled={isPending}
-            className="block w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50"
+            className="block w-32 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-[#111827] shadow-sm focus:border-[#1D4ED8] focus:outline-none focus:ring-1 focus:ring-[#1D4ED8] disabled:opacity-50 dark:border-gray-600 dark:bg-[#111827] dark:text-[#E5E7EB]"
           />
         </div>
-        <p className="mt-1 text-xs text-gray-500">
+        <p className="mt-1 text-xs text-[#6B7280] dark:text-[#9CA3AF]">
           Email when price drops by this % or more (e.g. 20 = 20%+ drop).
         </p>
       </div>
@@ -96,17 +96,17 @@ export function TargetPriceForm({
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-[#1E40AF] focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] focus:ring-offset-2 disabled:opacity-50 dark:focus:ring-offset-[#111827]"
         >
           {isPending ? "Saving..." : "Save"}
         </button>
       </div>
       {error && (
-        <p className="text-sm text-red-600" role="alert">
+        <p className="text-sm text-red-600 dark:text-red-400" role="alert">
           {error}
         </p>
       )}
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-[#6B7280] dark:text-[#9CA3AF]">
         You&apos;ll receive an email when either condition is met. Leave both
         empty to disable notifications.
       </p>

@@ -5,7 +5,9 @@ import { and, asc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { PriceHistoryChart } from "./price-history-chart";
+import { RefreshTitleButton } from "./refresh-title-button";
 import { TargetPriceForm } from "./target-price-form";
 
 type PageProps = {
@@ -57,25 +59,33 @@ export default async function ProductDetailPage({ params }: PageProps) {
     };
   });
 
+  const isPlaceholderTitle = product.title === "Product";
+
   return (
-    <main className="min-h-screen bg-gray-50">
-      <header className="border-b border-gray-200 bg-white">
+    <main className="min-h-screen bg-[#F5F5F5] dark:bg-[#1F2937]">
+      <header className="border-b border-gray-200 bg-white dark:border-gray-700 dark:bg-[#111827]">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4 sm:px-6">
           <Link
             href="/dashboard"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900"
+            className="text-sm font-medium text-[#6B7280] hover:text-[#111827] dark:text-[#9CA3AF] dark:hover:text-[#E5E7EB]"
           >
             ← Back to Dashboard
           </Link>
+          <ThemeToggle />
         </div>
       </header>
 
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h1 className="mb-2 text-xl font-semibold text-gray-900">
-            {product.title}
-          </h1>
-          <p className="mb-4 text-2xl font-semibold text-blue-600">
+        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-[#111827]">
+          <div className="mb-2 flex items-start justify-between gap-4">
+            <h1 className="text-xl font-semibold text-[#111827] dark:text-[#E5E7EB]">
+              {product.title}
+            </h1>
+            {isPlaceholderTitle && (
+              <RefreshTitleButton productId={product.id} />
+            )}
+          </div>
+          <p className="mb-4 text-2xl font-bold text-[#111827] dark:text-[#E5E7EB]">
             {product.currentPrice}
           </p>
           <div className="mb-4">
@@ -89,7 +99,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
             href={product.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            className="inline-flex items-center gap-1 text-sm text-[#6B7280] hover:text-[#111827] dark:text-[#9CA3AF] dark:hover:text-[#E5E7EB]"
           >
             View product
             <svg
@@ -108,7 +118,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           </a>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-[#111827]">
           <PriceHistoryChart data={chartData} productTitle={product.title} />
         </div>
       </div>

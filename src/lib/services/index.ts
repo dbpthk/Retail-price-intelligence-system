@@ -7,8 +7,11 @@ import "server-only";
 
 export {
   fetchPrice,
+  fetchProductInfo,
+  fetchTitle,
   PriceFetcherError,
   type PriceFetcherConfig,
+  type FetchProductInfoResult,
 } from "./price-fetcher";
 
 export {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTheme } from "next-themes";
 import {
   CartesianGrid,
   Line,
@@ -22,9 +23,17 @@ type PriceHistoryChartProps = {
 };
 
 export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const gridStroke = isDark ? "#374151" : "#e4e4e7";
+  const tickFill = isDark ? "#9CA3AF" : "#71717a";
+  const lineStroke = "#1D4ED8";
+  const tooltipBg = isDark ? "#111827" : "#fff";
+  const tooltipBorder = isDark ? "#374151" : "#e4e4e7";
+
   if (data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-500">
+      <div className="flex h-64 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-[#6B7280] dark:border-gray-700 dark:bg-gray-800 dark:text-[#9CA3AF]">
         No price history yet
       </div>
     );
@@ -32,7 +41,7 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
 
   return (
     <div className="w-full">
-      <h3 className="mb-4 text-sm font-medium text-gray-700">
+      <h3 className="mb-4 text-sm font-medium text-[#111827] dark:text-[#E5E7EB]">
         Price history: {productTitle}
       </h3>
       <div className="h-64 w-full">
@@ -43,18 +52,18 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="#e4e4e7"
+              stroke={gridStroke}
               vertical={false}
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 11, fill: "#71717a" }}
+              tick={{ fontSize: 11, fill: tickFill }}
               tickLine={false}
-              axisLine={{ stroke: "#e4e4e7" }}
+              axisLine={{ stroke: gridStroke }}
             />
             <YAxis
               dataKey="price"
-              tick={{ fontSize: 11, fill: "#71717a" }}
+              tick={{ fontSize: 11, fill: tickFill }}
               tickLine={false}
               axisLine={false}
               tickFormatter={(value) =>
@@ -63,12 +72,12 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "#fff",
-                border: "1px solid #e4e4e7",
+                backgroundColor: tooltipBg,
+                border: `1px solid ${tooltipBorder}`,
                 borderRadius: "6px",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
               }}
-              labelStyle={{ color: "#52525b", fontWeight: 500 }}
+              labelStyle={{ color: isDark ? "#E5E7EB" : "#52525b", fontWeight: 500 }}
               formatter={(value: number | undefined) =>
                 value != null ? [value.toFixed(2), "Price"] : ["—", "Price"]
               }
@@ -77,10 +86,10 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
             <Line
               type="monotone"
               dataKey="price"
-              stroke="#2563eb"
+              stroke={lineStroke}
               strokeWidth={2}
-              dot={{ fill: "#2563eb", strokeWidth: 0, r: 3 }}
-              activeDot={{ r: 5, fill: "#2563eb", stroke: "#fff", strokeWidth: 2 }}
+              dot={{ fill: lineStroke, strokeWidth: 0, r: 3 }}
+              activeDot={{ r: 5, fill: lineStroke, stroke: isDark ? "#111827" : "#fff", strokeWidth: 2 }}
             />
           </LineChart>
         </ResponsiveContainer>

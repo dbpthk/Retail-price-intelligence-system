@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { priceHistory, products } from "@/lib/db/schema";
-import { fetchPrice, PriceFetcherError } from "@/lib/services";
+import { fetchProductInfo, PriceFetcherError } from "@/lib/services";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -102,16 +102,18 @@ export async function addProduct(
   }
 
   let price: number | null = null;
+  let title = PLACEHOLDER_TITLE;
   try {
-    price = await fetchPrice(normalizedUrl, {
+    const info = await fetchProductInfo(normalizedUrl, {
       selector,
       timeoutMs: 10_000,
     });
+    price = info.price;
+    title = info.title || PLACEHOLDER_TITLE;
   } catch (error) {
     if (error instanceof PriceFetcherError) {
       // Continue with placeholder - we'll save the product and inform the user
     }
-    // price stays null, we'll use placeholder
   }
 
   const priceStr = price !== null ? String(price) : PLACEHOLDER_PRICE;
@@ -121,7 +123,7 @@ export async function addProduct(
     await db.insert(products).values({
       id: productId,
       userId: session.user.id,
-      title: PLACEHOLDER_TITLE,
+      title: title.trim() || PLACEHOLDER_TITLE,
       url: normalizedUrl,
       currentPrice: priceStr,
       targetPrice,
