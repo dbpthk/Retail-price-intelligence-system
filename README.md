@@ -1,6 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project with [Better Auth](https://www.better-auth.com/) for authentication.
 
 ## Getting Started
+
+### 1. Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+
+- `DATABASE_URL` - PostgreSQL connection string
+- `BETTER_AUTH_SECRET` - Generate with `openssl rand -base64 32`
+- `BETTER_AUTH_URL` - Base URL (e.g. `http://localhost:3000`)
+
+### 2. Database Setup
+
+Run migrations to create the auth tables:
+
+```bash
+npm run db:generate  # Generate migration
+npm run db:migrate   # Apply migration
+```
+
+### 3. Development Server
 
 First, run the development server:
 
