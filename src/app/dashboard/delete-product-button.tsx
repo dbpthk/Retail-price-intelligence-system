@@ -3,6 +3,7 @@
 import { deleteProduct } from "@/lib/actions/delete-product";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 type DeleteProductButtonProps = {
   productId: string;
@@ -21,8 +22,11 @@ export function DeleteProductButton({
     setIsDeleting(true);
     const result = await deleteProduct(productId);
     if (result.success) {
+      toast.success("Product removed from watchlist");
       setIsOpen(false);
       router.refresh();
+    } else {
+      toast.error(result.error ?? "Failed to delete product");
     }
     setIsDeleting(false);
   };

@@ -67,7 +67,7 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
               tickLine={false}
               axisLine={false}
               tickFormatter={(value) =>
-                typeof value === "number" ? value.toFixed(2) : value
+                typeof value === "number" ? `AUD $${value.toFixed(2)}` : value
               }
             />
             <Tooltip
@@ -79,7 +79,7 @@ export function PriceHistoryChart({ data, productTitle }: PriceHistoryChartProps
               }}
               labelStyle={{ color: isDark ? "#E5E7EB" : "#52525b", fontWeight: 500 }}
               formatter={(value: number | undefined) =>
-                value != null ? [value.toFixed(2), "Price"] : ["—", "Price"]
+                value != null ? [`AUD $${value.toFixed(2)}`, "Price"] : ["—", "Price"]
               }
               labelFormatter={(label) => label}
             />

@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  boolean,
   index,
   pgTable,
   real,
@@ -18,6 +19,12 @@ export const products = pgTable(
     title: text("title").notNull(),
     url: text("url").notNull(),
     currentPrice: text("current_price").notNull(),
+    priceType: text("price_type"),
+    wasPrice: text("was_price"),
+    salePercentage: real("sale_percentage"),
+    isOnSpecial: boolean("is_on_special"),
+    isHalfPrice: boolean("is_half_price"),
+    savings: real("savings"),
     targetPrice: text("target_price"),
     notifyBelow: real("notify_below"),
     lastCheckedAt: timestamp("last_checked_at"),

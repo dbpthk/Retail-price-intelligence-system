@@ -111,25 +111,29 @@ async function fetchHtml(
 }
 
 /**
- * Fetches a product page and extracts the price using a configurable CSS selector.
- * Server-side only. Do not import in client components.
+ * Fetches a product page and extracts the price using multiple strategies:
+ * 1. Woolworths API (for woolworths.com.au / woolworths.co.za)
+ * 2. JSON-LD schema.org Product data
+ * 3. Multiple HTML selectors (sale price first, then generic)
  *
  * @param url - Product page URL
- * @param config - Selector and optional timeout
- * @returns Extracted price as number
- * @throws PriceFetcherError on fetch failure, timeout, invalid HTML, or when price cannot be extracted
+ * @param config - Selector (used as first to try) and optional timeout
+ * @returns Extracted price and price type (sale/full)
+ * @throws PriceFetcherError on fetch failure or when no price found
  */
 export async function fetchPrice(
   url: string,
   config: PriceFetcherConfig
-): Promise<number> {
+): Promise<PriceResult> {
   const { selector, timeoutMs = DEFAULT_TIMEOUT_MS } = config;
 
-  if (!selector?.trim()) {
-    throw new PriceFetcherError("Selector is required", "SELECTOR_NOT_FOUND");
-  }
+  const woolworthsResult = await fetchWoolworthsPrice(url);
+  if (woolworthsResult !== null) return woolworthsResult;
 
   const html = await fetchHtml(url, timeoutMs);
+
+  const jsonLdResult = extractPriceFromJsonLd(html);
+  if (jsonLdResult !== null) return jsonLdResult;
 
   let $: cheerio.CheerioAPI;
   try {
@@ -138,24 +142,11 @@ export async function fetchPrice(
     throw new PriceFetcherError("Invalid or malformed HTML", "INVALID_HTML");
   }
 
-  const elements = $(selector);
-  if (elements.length === 0) {
-    throw new PriceFetcherError(
-      `No elements found for selector: ${selector}`,
-      "SELECTOR_NOT_FOUND"
-    );
-  }
-
-  for (let i = 0; i < elements.length; i++) {
-    const text = $(elements[i]).text().trim();
-    const price = parsePriceFromText(text);
-    if (price !== null && price > 0) {
-      return price;
-    }
-  }
+  const selectorResult = extractPriceFromSelectors($, selector);
+  if (selectorResult !== null) return selectorResult;
 
   throw new PriceFetcherError(
-    "Could not extract a valid price from the selected elements",
+    "Could not extract a valid price from the page",
     "NO_PRICE_FOUND"
   );
 }
@@ -248,11 +239,17 @@ function titleFromUrl(url: string): string {
 export type FetchProductInfoResult = {
   price: number | null;
   title: string;
+  priceType: "sale" | "full" | null;
+  salePercentage?: number | null;
+  wasPrice?: number | null;
+  isOnSpecial?: boolean | null;
+  isHalfPrice?: boolean | null;
+  savings?: number | null;
 };
 
 /**
  * Fetches a product page and extracts both price and title in a single request.
- * Use this when adding products to get the actual product name.
+ * Uses same multi-strategy price extraction as fetchPrice.
  */
 export async function fetchProductInfo(
   url: string,
@@ -260,35 +257,452 @@ export async function fetchProductInfo(
 ): Promise<FetchProductInfoResult> {
   const { selector, timeoutMs = DEFAULT_TIMEOUT_MS } = config;
 
-  const html = await fetchHtml(url, timeoutMs);
+  let price: number | null = null;
+  let priceType: "sale" | "full" | null = null;
+  let salePercentage: number | null = null;
+  let wasPrice: number | null = null;
+  let isOnSpecial: boolean | null = null;
+  let isHalfPrice: boolean | null = null;
+  let savings: number | null = null;
+
+  try {
+    const woolworths = await fetchWoolworthsPrice(url);
+    if (woolworths) {
+      price = woolworths.price;
+      priceType = woolworths.priceType;
+      salePercentage = woolworths.salePercentage ?? null;
+      wasPrice = woolworths.wasPrice ?? null;
+      isOnSpecial = woolworths.isOnSpecial ?? null;
+      isHalfPrice = woolworths.isHalfPrice ?? null;
+      savings = woolworths.savings ?? null;
+    }
+  } catch {
+    // continue
+  }
+
+  const html = await fetchHtml(url, timeoutMs ?? DEFAULT_TIMEOUT_MS);
+
+  if (price === null) {
+    const jsonLd = extractPriceFromJsonLd(html);
+    if (jsonLd) {
+      price = jsonLd.price;
+      priceType = jsonLd.priceType;
+      salePercentage = jsonLd.salePercentage ?? null;
+      wasPrice = jsonLd.wasPrice ?? null;
+    }
+  }
 
   let $: cheerio.CheerioAPI;
   try {
     $ = cheerio.load(html);
   } catch {
-    return { price: null, title: PLACEHOLDER_TITLE };
+    return {
+      price,
+      title: PLACEHOLDER_TITLE,
+      priceType,
+      salePercentage,
+      wasPrice,
+      isOnSpecial,
+      isHalfPrice,
+      savings,
+    };
   }
 
-  const title = extractTitle($);
-
-  if (!selector?.trim()) {
-    return { price: null, title };
-  }
-
-  const elements = $(selector);
-  for (let i = 0; i < elements.length; i++) {
-    const text = $(elements[i]).text().trim();
-    const price = parsePriceFromText(text);
-    if (price !== null && price > 0) {
-      return { price, title };
+  if (price === null) {
+    const selectorResult = extractPriceFromSelectors($, selector);
+    if (selectorResult) {
+      price = selectorResult.price;
+      priceType = selectorResult.priceType;
+      salePercentage = selectorResult.salePercentage ?? null;
+      wasPrice = selectorResult.wasPrice ?? null;
     }
   }
 
-  return { price: null, title };
+  const title = extractTitle($);
+  return {
+    price,
+    title,
+    priceType,
+    salePercentage,
+    wasPrice,
+    isOnSpecial,
+    isHalfPrice,
+    savings,
+  };
 }
 
 const DEFAULT_PRICE_SELECTOR =
   ".price, .product-price, [data-price], #price, span[class*='price']";
+
+/**
+ * Price selectors to try in order. Sale/discounted selectors first for better match.
+ * Note: Selector match alone does not indicate sale - we mark as "full" without wasPrice/savings.
+ */
+const PRICE_SELECTORS = [
+  "[data-sale-price]",
+  "[data-product-price]",
+  ".sale-price",
+  ".promo-price",
+  ".product-price--sale",
+  ".price--sale",
+  ".price-block__sale-price",
+  ".product-price-promo",
+  "#priceblock_dealprice",
+  "#priceblock_saleprice",
+  "[data-price]",
+  ".price",
+  ".product-price",
+  ".product__price",
+  ".product-detail__price",
+  "#price",
+  "#productPrice",
+  ".woocommerce-Price-amount",
+  "span[class*='price']",
+  "[class*='Price']",
+  ".sf-pricedisplay",
+];
+
+export type PriceResult = {
+  price: number;
+  priceType: "sale" | "full" | null;
+  salePercentage?: number | null;
+  wasPrice?: number | null;
+  /** Woolworths: product is on special */
+  isOnSpecial?: boolean | null;
+  /** Woolworths: half-price promotion */
+  isHalfPrice?: boolean | null;
+  /** Woolworths: dollar amount saved (e.g. 2.50) */
+  savings?: number | null;
+};
+
+/**
+ * Woolworths native price object: { current, was, cupPrice, cupMeasure, savings, ... }
+ * IMPORTANT: cupPrice is per 100g/ml - must NEVER be used as product price.
+ */
+function getWoolworthsPriceFromNested(
+  data: Record<string, unknown>
+): { current: number; was: number | null; savings: number | null } | null {
+  const tryPriceObj = (p: Record<string, unknown> | null | undefined) => {
+    if (!p || typeof p !== "object" || Array.isArray(p)) return null;
+    const current =
+      (p.current as number) ?? (p.Current as number) ?? (p.product_price as number);
+    if (typeof current !== "number" || current <= 0) return null;
+    const was =
+      (p.was as number) ?? (p.Was as number) ?? (p.wasPrice as number) ?? (p.WasPrice as number);
+    const wasPrice = typeof was === "number" && was > 0 ? was : null;
+    const savingsRaw = (p.savings as number) ?? (p.Savings as number);
+    const savings =
+      typeof savingsRaw === "number" && savingsRaw > 0 ? savingsRaw : null;
+    return { current, was: wasPrice, savings };
+  };
+
+  const topLevel = tryPriceObj(data?.price as Record<string, unknown>);
+  if (topLevel) return topLevel;
+
+  const graph = data?.["@graph"] as Array<Record<string, unknown>> | undefined;
+  if (Array.isArray(graph)) {
+    for (const item of graph) {
+      const found = tryPriceObj(item?.price as Record<string, unknown>);
+      if (found) return found;
+      const product = item?.Product ?? item?.product;
+      if (product && typeof product === "object") {
+        const found2 = tryPriceObj((product as Record<string, unknown>)?.price as Record<string, unknown>);
+        if (found2) return found2;
+      }
+    }
+  }
+  return null;
+}
+
+function getNestedOfferPrice(obj: Record<string, unknown>): number | null {
+  const offers = obj?.offers;
+  let offer: Record<string, unknown> | undefined;
+  if (Array.isArray(offers) && offers.length > 0) {
+    offer = offers[0] as Record<string, unknown>;
+  } else if (offers && typeof offers === "object") {
+    offer = offers as Record<string, unknown>;
+  }
+  if (!offer) return null;
+
+  const p = offer?.price ?? offer?.lowPrice;
+  return typeof p === "number" && p > 0 ? p : null;
+}
+
+function getNestedWasPrice(obj: Record<string, unknown>): number | null {
+  const offers = obj?.offers;
+  let offer: Record<string, unknown> | undefined;
+  if (Array.isArray(offers) && offers.length > 0) {
+    offer = offers[0] as Record<string, unknown>;
+  } else if (offers && typeof offers === "object") {
+    offer = offers as Record<string, unknown>;
+  }
+  if (!offer) return null;
+  const spec = offer?.priceSpecification as Record<string, unknown> | undefined;
+  if (spec) {
+    const p = spec?.price ?? spec?.value;
+    return typeof p === "number" && p > 0 ? p : null;
+  }
+  return (offer?.highPrice as number) ?? (obj?.wasPrice as number) ?? (obj?.was as number) ?? null;
+}
+
+/**
+ * Tries to fetch price from Woolworths Australia API.
+ *
+ * Price structure (native format):
+ *   price.current = total product price (sale price when on sale)
+ *   price.was = original total price
+ *   price.cupPrice = per 100g/ml - NEVER use as product price
+ *   price.savings = dollar amount saved (product is on sale ONLY when this > 0)
+ */
+async function fetchWoolworthsPrice(url: string): Promise<PriceResult | null> {
+  try {
+    const parsed = new URL(url);
+    if (
+      !parsed.hostname.includes("woolworths.com.au") &&
+      !parsed.hostname.includes("woolworths.co.za")
+    ) {
+      return null;
+    }
+    const pathMatch = parsed.pathname.match(/\/productdetails\/(\d+)/);
+    const productId = pathMatch?.[1];
+    if (!productId) return null;
+
+    const headers = {
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept: "application/json",
+    };
+
+    const productApiUrl = `https://www.woolworths.com.au/api/v3/ui/product/${productId}`;
+    const schemaOrgApiUrl = `https://www.woolworths.com.au/api/v3/ui/schemaorg/product/${productId}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8_000);
+
+    let data: Record<string, unknown>;
+    const productRes = await fetch(productApiUrl, {
+      signal: controller.signal,
+      headers,
+    });
+    if (productRes.ok) {
+      const productData = (await productRes.json()) as Record<string, unknown>;
+      if (getWoolworthsPriceFromNested(productData)) {
+        data = productData;
+      } else {
+        const schemaRes = await fetch(schemaOrgApiUrl, {
+          signal: controller.signal,
+          headers,
+        });
+        if (!schemaRes.ok) return null;
+        data = (await schemaRes.json()) as Record<string, unknown>;
+      }
+    } else {
+      const schemaRes = await fetch(schemaOrgApiUrl, {
+        signal: controller.signal,
+        headers,
+      });
+      if (!schemaRes.ok) return null;
+      data = (await schemaRes.json()) as Record<string, unknown>;
+    }
+    clearTimeout(timeoutId);
+
+    let price: number;
+    let wasPrice: number | null;
+    let savings: number | null;
+
+    const nested = getWoolworthsPriceFromNested(data);
+    if (nested) {
+      price = nested.current;
+      wasPrice = nested.was;
+      savings = nested.savings;
+    } else {
+      const offerPrice = getNestedOfferPrice(data);
+      const flatPrice =
+        (data?.product_price as number) ??
+        (data?.ProductPrice as number) ??
+        (data?.Price as number);
+      const p =
+        offerPrice ??
+        (typeof data?.price === "number" ? (data.price as number) : null) ??
+        (data?.lowPrice as number) ??
+        flatPrice;
+      if (typeof p !== "number" || p <= 0) return null;
+      price = p;
+
+      wasPrice =
+        getNestedWasPrice(data) ??
+        (typeof (data?.WasPrice as number) === "number" ? (data.WasPrice as number) : null) ??
+        (typeof (data?.wasPrice as number) === "number" ? (data.wasPrice as number) : null) ??
+        (typeof (data?.was as number) === "number" ? (data.was as number) : null);
+
+      const savingsRaw = (data?.Savings as number) ?? (data?.savings as number);
+      savings =
+        typeof savingsRaw === "number" && savingsRaw > 0 ? savingsRaw : null;
+    }
+
+    const priceObj = data?.price as Record<string, unknown> | undefined;
+    const isHalfPrice =
+      priceObj?.IsHalfPrice === true ||
+      priceObj?.isHalfPrice === true ||
+      data?.IsHalfPrice === true ||
+      data?.isHalfPrice === true;
+    const isOnSpecial =
+      priceObj?.IsOnSpecial === true ||
+      priceObj?.isOnSpecial === true ||
+      data?.IsOnSpecial === true ||
+      data?.isOnSpecial === true ||
+      (typeof (data?.Savings as number) === "number" && (data.Savings as number) > 0) ||
+      (typeof (data?.savings as number) === "number" && (data.savings as number) > 0);
+
+    let salePercentage: number | null = null;
+    const hasDiscountFromWasPrice =
+      typeof wasPrice === "number" &&
+      wasPrice > 0 &&
+      wasPrice > price;
+    if (savings != null && savings > 0 || hasDiscountFromWasPrice) {
+      if (isHalfPrice) {
+        salePercentage = 50;
+      } else if (hasDiscountFromWasPrice) {
+        salePercentage = Math.round(((wasPrice! - price) / wasPrice!) * 100);
+      }
+    }
+
+    const isSale =
+      (savings != null && savings > 0) || hasDiscountFromWasPrice;
+    return {
+      price,
+      priceType: isSale ? "sale" : "full",
+      salePercentage: salePercentage ?? undefined,
+      wasPrice: typeof wasPrice === "number" && wasPrice > 0 ? wasPrice : undefined,
+      isOnSpecial: isOnSpecial || undefined,
+      isHalfPrice: isHalfPrice || undefined,
+      savings: savings ?? undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Extracts price from JSON-LD Product schema in HTML.
+ */
+function extractPriceFromJsonLd(html: string): PriceResult | null {
+  const scriptMatch = html.match(
+    /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  );
+  if (!scriptMatch) return null;
+
+  for (const match of scriptMatch) {
+    const content = match.replace(
+      /<script[^>]*>([\s\S]*?)<\/script>/i,
+      "$1"
+    ).trim();
+    try {
+      const json = JSON.parse(content) as Record<string, unknown>;
+      const process = (obj: Record<string, unknown>): PriceResult | null => {
+        const offers = obj?.offers as
+          | {
+              price?: number;
+              lowPrice?: number;
+              highPrice?: number;
+              priceSpecification?: { price?: number; value?: number };
+            }
+          | undefined;
+        if (!offers) return null;
+        const price = offers.price ?? offers.lowPrice;
+        if (typeof price !== "number" || price <= 0) return null;
+        const spec = offers.priceSpecification;
+        const wasPrice =
+          (spec?.price ?? spec?.value) ?? offers.highPrice;
+        let salePercentage: number | null = null;
+        if (
+          typeof wasPrice === "number" &&
+          wasPrice > 0 &&
+          wasPrice > price
+        ) {
+          salePercentage = Math.round(((wasPrice - price) / wasPrice) * 100);
+        }
+        const isSale = salePercentage !== null;
+        return {
+          price,
+          priceType: isSale ? "sale" : "full",
+          salePercentage: salePercentage ?? undefined,
+          wasPrice:
+            typeof wasPrice === "number" && wasPrice > 0 ? wasPrice : undefined,
+        };
+      };
+      const graph = json["@graph"] as Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(graph)) {
+        for (const item of graph) {
+          const type = item["@type"] as string | undefined;
+          if (type === "Product" || type?.includes("Product")) {
+            const p = process(item);
+            if (p !== null) return p;
+          }
+        }
+      }
+      const type = json["@type"] as string | undefined;
+      if (type === "Product" || type?.includes("Product")) {
+        const p = process(json);
+        if (p !== null) return p;
+      }
+    } catch {
+      // skip invalid JSON
+    }
+  }
+  return null;
+}
+
+/**
+ * Tries to extract price from HTML using multiple selectors.
+ */
+function extractPriceFromSelectors(
+  $: cheerio.CheerioAPI,
+  customSelectors?: string
+): PriceResult | null {
+  const custom = customSelectors
+    ? customSelectors.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const toTry = [...custom, ...PRICE_SELECTORS];
+
+  for (let idx = 0; idx < toTry.length; idx++) {
+    const sel = toTry[idx];
+
+    if (sel.startsWith("[")) {
+      const els = $(sel);
+      for (let i = 0; i < els.length; i++) {
+        const attr =
+          $(els[i]).attr("data-sale-price") ??
+          $(els[i]).attr("data-product-price") ??
+          $(els[i]).attr("data-price");
+        if (attr) {
+          const num = parsePriceFromText(attr);
+          if (num !== null && num > 0) {
+            return {
+              price: num,
+              priceType: "full",
+            };
+          }
+        }
+        const text = $(els[i]).text().trim();
+        const num = parsePriceFromText(text);
+        if (num !== null && num > 0) {
+          return { price: num, priceType: "full" };
+        }
+      }
+    } else {
+      const els = $(sel);
+      for (let i = 0; i < els.length; i++) {
+        const text = $(els[i]).text().trim();
+        const num = parsePriceFromText(text);
+        if (num !== null && num > 0) {
+          return { price: num, priceType: "full" };
+        }
+      }
+    }
+  }
+  return null;
+}
 
 /**
  * Fetches HTML and extracts title only (no price lookup). More reliable for title-only use.

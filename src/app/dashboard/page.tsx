@@ -6,6 +6,8 @@ import { desc, eq, inArray } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { formatPrice } from "@/lib/utils/format-price";
+import { SaleBadges } from "@/components/sale-badges";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { DeleteProductButton } from "./delete-product-button";
 import { SignOutButton } from "./sign-out-button";
@@ -207,10 +209,18 @@ export default async function DashboardPage() {
             {userProducts.map((product) => {
               const hist = historyByProduct.get(product.id) ?? [];
               const priceChange = getPriceChange(product.currentPrice, hist);
+              const hasSaleEvidence =
+                product.priceType === "sale" &&
+                ((product.savings != null && product.savings > 0) ||
+                  (product.wasPrice != null && product.salePercentage != null));
               return (
                 <article
                   key={product.id}
-                  className="relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:shadow-md dark:border-gray-700 dark:bg-[#111827]"
+                  className={`relative overflow-hidden rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md ${
+                    hasSaleEvidence
+                      ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/30"
+                      : "border-gray-200 bg-white dark:border-gray-700 dark:bg-[#111827]"
+                  }`}
                 >
                   <div className="absolute right-3 top-3">
                     <DeleteProductButton
@@ -222,7 +232,20 @@ export default async function DashboardPage() {
                     <h3 className="mb-3 line-clamp-2 pr-8 text-[15px] font-semibold leading-snug text-[#111827] dark:text-[#E5E7EB]">
                       {product.title}
                     </h3>
-                    <div className="mb-2 flex items-baseline gap-2">
+                    <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                      {product.wasPrice && hasSaleEvidence && (
+                        <span className="text-sm text-[#6B7280] dark:text-[#9CA3AF]">
+                          <span className="font-medium">Was </span>
+                          <span className="line-through">
+                            {formatPrice(product.wasPrice)}
+                          </span>
+                        </span>
+                      )}
+                      {hasSaleEvidence && (
+                        <span className="text-xs font-medium uppercase tracking-wide text-[#16A34A]">
+                          Now
+                        </span>
+                      )}
                       <span
                         className={`text-2xl font-bold tracking-tight ${
                           priceChange === "drop"
@@ -232,8 +255,22 @@ export default async function DashboardPage() {
                               : "text-[#111827] dark:text-[#E5E7EB]"
                         }`}
                       >
-                        {product.currentPrice}
+                        {formatPrice(product.currentPrice)}
                       </span>
+                      {hasSaleEvidence ? (
+                        <SaleBadges
+                          priceType="sale"
+                          isHalfPrice={product.isHalfPrice}
+                          isOnSpecial={product.isOnSpecial}
+                          savings={product.savings}
+                          salePercentage={product.salePercentage}
+                          compact
+                        />
+                      ) : (
+                        <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-[#6B7280] dark:bg-gray-800 dark:text-[#9CA3AF]">
+                          Full price
+                        </span>
+                      )}
                       {priceChange === "drop" && (
                         <span className="rounded bg-[#16A34A]/10 px-2 py-0.5 text-xs font-medium text-[#16A34A]">
                           ↓ Drop
@@ -252,7 +289,7 @@ export default async function DashboardPage() {
                       <div className="mb-4 flex flex-wrap gap-1.5">
                         {product.targetPrice && (
                           <span className="inline-flex items-center rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-[#6B7280] dark:bg-gray-800 dark:text-[#9CA3AF]">
-                            Below {product.targetPrice}
+                            Below {formatPrice(product.targetPrice)}
                           </span>
                         )}
                         {product.notifyBelow != null && (

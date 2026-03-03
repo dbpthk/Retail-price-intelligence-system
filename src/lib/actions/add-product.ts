@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { priceHistory, products } from "@/lib/db/schema";
+import { normalizePriceForStorage } from "@/lib/utils/format-price";
 import { fetchProductInfo, PriceFetcherError } from "@/lib/services";
 import { and, eq } from "drizzle-orm";
 import { headers } from "next/headers";
@@ -103,6 +104,12 @@ export async function addProduct(
 
   let price: number | null = null;
   let title = PLACEHOLDER_TITLE;
+  let priceType: "sale" | "full" | null = null;
+  let salePercentage: number | null = null;
+  let wasPrice: number | null = null;
+  let isOnSpecial: boolean | null = null;
+  let isHalfPrice: boolean | null = null;
+  let savings: number | null = null;
   try {
     const info = await fetchProductInfo(normalizedUrl, {
       selector,
@@ -110,13 +117,20 @@ export async function addProduct(
     });
     price = info.price;
     title = info.title || PLACEHOLDER_TITLE;
+    priceType = info.priceType ?? null;
+    salePercentage = info.salePercentage ?? null;
+    wasPrice = info.wasPrice ?? null;
+    isOnSpecial = info.isOnSpecial ?? null;
+    isHalfPrice = info.isHalfPrice ?? null;
+    savings = info.savings ?? null;
   } catch (error) {
     if (error instanceof PriceFetcherError) {
       // Continue with placeholder - we'll save the product and inform the user
     }
   }
 
-  const priceStr = price !== null ? String(price) : PLACEHOLDER_PRICE;
+  const priceStr =
+    price !== null ? normalizePriceForStorage(price) : PLACEHOLDER_PRICE;
   const now = new Date();
 
   try {
@@ -126,6 +140,12 @@ export async function addProduct(
       title: title.trim() || PLACEHOLDER_TITLE,
       url: normalizedUrl,
       currentPrice: priceStr,
+      priceType,
+      wasPrice: wasPrice !== null ? normalizePriceForStorage(wasPrice) : null,
+      salePercentage,
+      isOnSpecial,
+      isHalfPrice,
+      savings,
       targetPrice,
       notifyBelow,
       lastCheckedAt: now,

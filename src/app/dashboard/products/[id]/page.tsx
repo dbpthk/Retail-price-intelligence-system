@@ -5,6 +5,8 @@ import { and, asc, eq } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { formatPrice } from "@/lib/utils/format-price";
+import { SaleBadges } from "@/components/sale-badges";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { PriceHistoryChart } from "./price-history-chart";
 import { RefreshTitleButton } from "./refresh-title-button";
@@ -60,6 +62,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
   });
 
   const isPlaceholderTitle = product.title === "Product";
+  const hasSaleEvidence =
+    product.priceType === "sale" &&
+    ((product.savings != null && product.savings > 0) ||
+      (product.wasPrice != null && product.salePercentage != null));
 
   return (
     <main className="min-h-screen bg-[#F5F5F5] dark:bg-[#1F2937]">
@@ -76,7 +82,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
       </header>
 
       <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-[#111827]">
+        <div
+          className={`mb-6 rounded-xl border p-6 shadow-sm ${
+            hasSaleEvidence
+              ? "border-emerald-300 bg-emerald-50/60 dark:border-emerald-700 dark:bg-emerald-950/30"
+              : "border-gray-200 bg-white dark:border-gray-700 dark:bg-[#111827]"
+          }`}
+        >
           <div className="mb-2 flex items-start justify-between gap-4">
             <h1 className="text-xl font-semibold text-[#111827] dark:text-[#E5E7EB]">
               {product.title}
@@ -85,9 +97,37 @@ export default async function ProductDetailPage({ params }: PageProps) {
               <RefreshTitleButton productId={product.id} />
             )}
           </div>
-          <p className="mb-4 text-2xl font-bold text-[#111827] dark:text-[#E5E7EB]">
-            {product.currentPrice}
-          </p>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {product.wasPrice && hasSaleEvidence && (
+              <span className="text-base text-[#6B7280] dark:text-[#9CA3AF]">
+                <span className="font-medium">Was </span>
+                <span className="line-through">
+                  {formatPrice(product.wasPrice)}
+                </span>
+              </span>
+            )}
+            {hasSaleEvidence && (
+              <span className="text-xs font-medium uppercase tracking-wide text-[#16A34A]">
+                Now
+              </span>
+            )}
+            <p className="text-2xl font-bold text-[#111827] dark:text-[#E5E7EB]">
+              {formatPrice(product.currentPrice)}
+            </p>
+            {hasSaleEvidence ? (
+              <SaleBadges
+                priceType="sale"
+                isHalfPrice={product.isHalfPrice}
+                isOnSpecial={product.isOnSpecial}
+                savings={product.savings}
+                salePercentage={product.salePercentage}
+              />
+            ) : (
+              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-[#6B7280] dark:bg-gray-800 dark:text-[#9CA3AF]">
+                Full price
+              </span>
+            )}
+          </div>
           <div className="mb-4">
             <TargetPriceForm
               productId={product.id}

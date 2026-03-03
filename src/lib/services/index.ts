@@ -12,6 +12,7 @@ export {
   PriceFetcherError,
   type PriceFetcherConfig,
   type FetchProductInfoResult,
+  type PriceResult,
 } from "./price-fetcher";
 
 export {

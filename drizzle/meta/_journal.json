@@ -29,6 +29,27 @@
       "when": 1772503813447,
       "tag": "0003_chilly_post",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772506786065,
+      "tag": "0004_pink_killmonger",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772507327475,
+      "tag": "0005_tearful_sugar_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772521565515,
+      "tag": "0006_concerned_slyde",
+      "breakpoints": true
     }
   ]
 }

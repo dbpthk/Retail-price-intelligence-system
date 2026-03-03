@@ -5,6 +5,7 @@ import {
   products,
 } from "@/lib/db/schema";
 import { user } from "@/lib/schema";
+import { normalizePriceForStorage } from "@/lib/utils/format-price";
 import {
   fetchPrice,
   PriceFetcherError,
@@ -66,7 +67,15 @@ async function handleCheckPrices(
 
     for (const product of allProducts) {
       try {
-        const newPrice = await fetchPrice(product.url, {
+        const {
+          price: newPrice,
+          priceType,
+          salePercentage,
+          wasPrice,
+          isOnSpecial,
+          isHalfPrice,
+          savings,
+        } = await fetchPrice(product.url, {
           selector: DEFAULT_PRICE_SELECTOR,
           timeoutMs: 10_000,
         });
@@ -78,7 +87,7 @@ async function handleCheckPrices(
 
         if (priceDecreased) {
           const oldPriceStr = product.currentPrice;
-          const newPriceStr = String(newPrice);
+          const newPriceStr = normalizePriceForStorage(newPrice);
           const percentDrop =
             ((currentPriceNum - newPrice) / currentPriceNum) * 100;
 
@@ -86,6 +95,13 @@ async function handleCheckPrices(
             .update(products)
             .set({
               currentPrice: newPriceStr,
+              priceType,
+              wasPrice:
+                wasPrice != null ? normalizePriceForStorage(wasPrice) : null,
+              salePercentage: salePercentage ?? null,
+              isOnSpecial: isOnSpecial ?? null,
+              isHalfPrice: isHalfPrice ?? null,
+              savings: savings ?? null,
               lastCheckedAt: now,
             })
             .where(eq(products.id, product.id));
@@ -156,20 +172,38 @@ async function handleCheckPrices(
         } else {
           await db
             .update(products)
-            .set({ lastCheckedAt: now })
+            .set({
+              lastCheckedAt: now,
+              priceType,
+              wasPrice:
+                wasPrice != null ? normalizePriceForStorage(wasPrice) : null,
+              salePercentage: salePercentage ?? null,
+              isOnSpecial: isOnSpecial ?? null,
+              isHalfPrice: isHalfPrice ?? null,
+              savings: savings ?? null,
+            })
             .where(eq(products.id, product.id));
 
           await db.insert(priceHistory).values({
             id: randomUUID(),
             productId: product.id,
-            price: String(newPrice),
+            price: normalizePriceForStorage(newPrice),
             checkedAt: now,
           });
 
           if (currentPriceNum === null) {
             await db
               .update(products)
-              .set({ currentPrice: String(newPrice) })
+              .set({
+                currentPrice: normalizePriceForStorage(newPrice),
+                priceType,
+                wasPrice:
+                  wasPrice != null ? normalizePriceForStorage(wasPrice) : null,
+                salePercentage: salePercentage ?? null,
+                isOnSpecial: isOnSpecial ?? null,
+                isHalfPrice: isHalfPrice ?? null,
+                savings: savings ?? null,
+              })
               .where(eq(products.id, product.id));
             updated++;
 

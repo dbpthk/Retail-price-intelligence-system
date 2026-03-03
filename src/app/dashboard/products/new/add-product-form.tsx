@@ -4,6 +4,7 @@ import { addProduct } from "@/lib/actions/add-product";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useFormState, useFormStatus } from "react-dom";
+import { toast } from "sonner";
 
 function FormFields({
   error,
@@ -112,8 +113,11 @@ export function AddProductForm() {
 
   useEffect(() => {
     if (state?.success) {
+      toast.success(state.message ?? "Product added to watchlist");
       router.push("/dashboard");
       router.refresh();
+    } else if (state && !state.success) {
+      toast.error(state.error);
     }
   }, [state, router]);
 
