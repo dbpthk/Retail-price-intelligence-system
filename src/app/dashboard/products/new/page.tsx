@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AddProductForm } from "./add-product-form";
 
 export default async function NewProductPage() {
   const session = await auth.api.getSession({
@@ -26,13 +27,14 @@ export default async function NewProductPage() {
       </header>
 
       <div className="mx-auto max-w-md px-4 py-8 sm:px-6">
-        <h1 className="mb-6 text-xl font-semibold text-gray-900">
+        <h1 className="mb-2 text-xl font-semibold text-gray-900">
           Add Product
         </h1>
-        <p className="text-sm text-gray-500">
-          Add product form coming soon. Price fetching will be implemented
-          later.
+        <p className="mb-6 text-sm text-gray-500">
+          Enter a product URL to add it to your watchlist. Price will be updated
+          when fetching is enabled.
         </p>
+        <AddProductForm />
       </div>
     </main>
   );

@@ -76,8 +76,8 @@ export default async function DashboardPage() {
               No products yet
             </h3>
             <p className="mb-6 text-sm text-gray-500">
-              Track prices for products you care about. Add your first product to
-              get started.
+              Track prices for products you care about. Add your first product
+              to get started.
             </p>
             <Link
               href="/dashboard/products/new"
